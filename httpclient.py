@@ -37,17 +37,28 @@ class HTTPClient(object):
 
     def connect(self, host, port):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        host = socket.gethostbyname(host)
+        port = int(port)
+        #print(host, port)
         self.socket.connect((host, port))
         return None
 
     def get_code(self, data):
-        return None
+        return int(data[0].split()[1])
 
     def get_headers(self,data):
-        return None
+        headers = ''
+        for i in data[1:]:
+            if not i:
+                break
+            headers = headers + i + '\r\n'
+        return headers
 
     def get_body(self, data):
-        return None
+        i = 1
+        while(data[i]):
+            i += 1
+        return data[i+1]
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -70,11 +81,84 @@ class HTTPClient(object):
     def GET(self, url, args=None):
         code = 500
         body = ""
+        url_parsed = urllib.parse.urlparse(url)
+        # print(url_parsed)
+
+        location = url_parsed.netloc
+        # print("location", location)
+        splited_location = location.split(':')
+        host = splited_location[0]
+        if len(splited_location) < 2:
+            port = 80
+        else:
+            port = splited_location[1]
+        path = url_parsed.path
+        if not path:
+            path = '/'
+        if url_parsed.query:
+            path += '?' + url_parsed.query
+        
+
+        self.connect(host, port)
+        message = 'GET %s HTTP/1.1\r\n' % (path)
+        host_name = 'Host: ' + location + '\r\n'
+        user_agent = 'User-Agent: Not a agent\r\n\r\n'
+        message = message + host_name + user_agent
+        self.sendall(message)
+        self.socket.shutdown(socket.SHUT_WR)
+        data = self.recvall(self.socket)
+        data = data.split('\r\n')
+        #print('data is\n', data)
+        code = self.get_code(data)
+        body = self.get_body(data)
+        #print("code is", code)
+        #print("body is", body)
+        self.close()
+
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
         code = 500
         body = ""
+        url_parsed = urllib.parse.urlparse(url)
+        #print(url_parsed)
+
+        location = url_parsed.netloc
+        splited_location = location.split(':')
+        host = splited_location[0]
+        if len(splited_location) < 2:
+            port = 80
+        else:
+            port = splited_location[1]
+        path = url_parsed.path
+        # print("url_parsed", url_parsed)
+
+        self.connect(host, port)
+        message = 'POST %s HTTP/1.1\r\n' % (path)
+        user_agent = 'User-Agent: An agent\r\n'
+        data = []
+        content_type = 'Content-Type: application/x-www-form-urlencoded\r\n'
+        connection = 'Connection: close\r\n'
+        if args != None:
+            for i in args:
+                key = args[i].replace(' ', '+')
+                data.append(i + '=' + key)
+        data = '&'.join(data)
+        content_length = 'Content-Length: ' + str(len(data)) + '\r\n'
+        host_name = 'Host: ' + location + '\r\n'
+
+        message = message + user_agent + host_name + content_type + content_length + connection + '\r\n' + data +'\r\n'
+
+        self.sendall(message)
+        self.socket.shutdown(socket.SHUT_WR)
+        data = self.recvall(self.socket)
+        data = data.split('\r\n')
+        #print('data is\n', data)
+        code = self.get_code(data)
+        body = self.get_body(data)
+        
+        self.close()
+
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
