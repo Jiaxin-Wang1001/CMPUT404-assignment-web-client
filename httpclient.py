@@ -141,13 +141,15 @@ class HTTPClient(object):
         connection = 'Connection: close\r\n'
         if args != None:
             for i in args:
-                key = args[i].replace(' ', '+')
-                data.append(i + '=' + key)
+                name = i.replace(' ', '+')
+                value = args[i].replace(' ', '+')
+                data.append(name + '=' + value)
         data = '&'.join(data)
-        content_length = 'Content-Length: ' + str(len(data)) + '\r\n'
+        length = str(len(data.encode()))
+        content_length = 'Content-Length: ' + length + '\r\n'
         host_name = 'Host: ' + location + '\r\n'
 
-        message = message + user_agent + host_name + content_type + content_length + connection + '\r\n' + data +'\r\n'
+        message = message + user_agent + host_name + content_type + content_length + connection + '\r\n' + data
 
         self.sendall(message)
         self.socket.shutdown(socket.SHUT_WR)
